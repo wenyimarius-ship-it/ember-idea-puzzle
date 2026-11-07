@@ -79,7 +79,7 @@ export function validate(s) {
       cardIds.has(c.id) ||
       typeof c.text !== "string" ||
       typeof c.category !== "string" ||
-      !colors[c.color] ||
+      !Object.hasOwn(colors, c.color) ||
       !Number.isFinite(c.x) ||
       !Number.isFinite(c.y) ||
       c.x < 24 ||

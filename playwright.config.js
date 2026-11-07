@@ -22,7 +22,7 @@ export default defineConfig({
     {
       name: "mobile",
       use: {
-        viewport: { width: 390, height: 844 },
+        viewport: { width: 375, height: 812 },
         isMobile: true,
         hasTouch: true,
       },
