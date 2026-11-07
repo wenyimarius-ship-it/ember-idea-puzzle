@@ -1,0 +1,21 @@
+:root { color: #23332c; background: #f5f3ec; font: 17px/1.55 system-ui, sans-serif; }
+* { box-sizing: border-box; }
+body { margin: 0; }
+.puzzle { width: min(100%, 38rem); padding: clamp(1rem, 5vw, 3rem); margin: auto; }
+a { color: #325346; text-underline-offset: .2em; }
+.back, footer { font-size: .9rem; }
+h1 { font-size: clamp(2rem, 8vw, 3.5rem); margin: .65em 0 .25em; }
+h2 { font-size: 1.35rem; margin: 0 0 .5rem; }
+p { margin: .4rem 0 1rem; overflow-wrap: anywhere; }
+button, textarea, input { font: inherit; }
+button { cursor: pointer; min-height: 44px; padding: .55rem .9rem; border-radius: .55rem; border: 1px solid #678173; background: #fffdf7; color: #23332c; text-align: left; overflow-wrap: anywhere; }
+button.primary { background: #2e5447; border-color: #2e5447; color: #fff; }
+button:disabled { opacity: .65; cursor: default; }
+button[aria-pressed="true"] { background: #dbe8d9; border-color: #2e5447; }
+button:focus-visible, a:focus-visible, input:focus-visible { outline: 3px solid #946113; outline-offset: 3px; }
+.cards, form { display: grid; gap: .55rem; }
+.actions { display: flex; flex-wrap: wrap; gap: .55rem; margin-top: 1rem; }
+label { display: grid; gap: .2rem; }
+input { width: 100%; min-height: 44px; padding: .45rem; border: 1px solid #678173; border-radius: .35rem; }
+.pair { background: #fffdf7; padding: .7rem 1rem; border-left: .25rem solid #2e5447; overflow-wrap: anywhere; }
+footer { margin-top: 2rem; }
