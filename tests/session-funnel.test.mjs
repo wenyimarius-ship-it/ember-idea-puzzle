@@ -96,20 +96,29 @@ test("storage unavailable disables analytics, sender failure never breaks gamepl
   assert.doesNotThrow(() => g.record("open"));
 });
 
-test("transport discards pageviews and removes URL query and fragment", async () => {
-  const { sanitizeAnalyticsEvent } = await import("../src/analytics.js");
+test("PostHog payload only accepts three nodes, has no content or pageview", async () => {
+  const { makePostHogPayload } = await import("../src/analytics.js");
   assert.equal(
-    sanitizeAnalyticsEvent({
-      type: "pageview",
-      url: "https://puzzle.test/?secret=123",
-    }),
+    makePostHogPayload(
+      "$pageview",
+      "wechat_moments",
+      "anonymous",
+      "test-token",
+    ),
     null,
   );
-  assert.deepEqual(
-    sanitizeAnalyticsEvent({
-      type: "event",
-      url: "https://puzzle.test/anything?secret=123#private",
-    }),
-    { type: "event", url: "https://puzzle.test/" },
+  const p = makePostHogPayload(
+    "puzzle_home_open",
+    "wechat_moments",
+    "anonymous",
+    "test-token",
   );
+  assert.deepEqual(p.properties, {
+    site: "puzzle",
+    source: "wechat_moments",
+    traffic: "test",
+    $process_person_profile: false,
+    $geoip_disable: true,
+  });
+  assert.equal("url" in p, false);
 });

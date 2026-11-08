@@ -1,30 +1,58 @@
-// Local production-preview acceptance with an explicitly mocked receiver.
-import { chromium } from "@playwright/test";
+// By default intercept PostHog. POSTHOG_REAL_CAPTURE=1 attempts real ingestion.
+import { chromium, expect } from "@playwright/test";
 import assert from "node:assert/strict";
 import { writeFile } from "node:fs/promises";
+const real = process.env.POSTHOG_REAL_CAPTURE === "1";
+const proxy = process.env.HTTPS_PROXY || process.env.https_proxy;
 const browser = await chromium.launch({
   executablePath: process.env.CHROMIUM_PATH || "/usr/bin/chromium",
   args: ["--no-sandbox"],
+  ...(real && proxy
+    ? { proxy: { server: proxy, bypass: "127.0.0.1,localhost" } }
+    : {}),
 });
 const page = await browser.newPage({
   viewport: { width: 375, height: 812 },
   reducedMotion: "reduce",
 });
-const events = [];
-await page.route("**/_vercel/insights/script.js", (route) =>
-  route.fulfill({
-    contentType: "text/javascript",
-    body: `let filter=x=>x;function run(command,payload){if(command==='beforeSend')filter=payload;if(command==='event'){const meta=filter({type:'event',url:location.href});if(meta)fetch('/_vercel/insights/event',{method:'POST',body:JSON.stringify({...meta,name:payload.name,data:payload.data})});}}(window.vaq||[]).forEach(args=>run(...args));window.va=run;`,
-  }),
-);
-await page.route("**/_vercel/insights/event", async (route) => {
-  events.push(route.request().postDataJSON());
-  await route.fulfill({ status: 200, body: "{}" });
+const endpoint = "https://us.i.posthog.com/i/v0/e/";
+const events = [],
+  responses = [],
+  failures = [];
+page.on("request", (request) => {
+  if (request.url() === endpoint && request.method() === "POST") {
+    const { api_key, distinct_id, ...safe } = request.postDataJSON();
+    events.push(safe);
+  }
 });
-await page.goto(
-  (process.env.PREVIEW_URL || "http://127.0.0.1:4176") +
-    "/?utm_source=wechat_moments",
-);
+page.on("response", (response) => {
+  if (response.url() === endpoint && response.request().method() === "POST")
+    responses.push(response.status());
+});
+page.on("requestfailed", (request) => {
+  if (request.url() === endpoint) failures.push(request.failure()?.errorText);
+});
+if (!real)
+  await page.route(endpoint, async (route) => {
+    if (route.request().method() === "OPTIONS") {
+      await route.fulfill({
+        status: 204,
+        headers: {
+          "Access-Control-Allow-Origin": "*",
+          "Access-Control-Allow-Methods": "POST, OPTIONS",
+          "Access-Control-Allow-Headers": "Content-Type",
+        },
+      });
+      return;
+    }
+    await route.fulfill({
+      status: 200,
+      headers: { "Access-Control-Allow-Origin": "*" },
+      body: '{"status":"Ok"}',
+    });
+  });
+const base = process.env.PREVIEW_URL || "http://127.0.0.1:4180";
+await page.goto(base + "/?utm_source=wechat_moments");
 const finish = async () => {
   await page.getByRole("button", { name: "试一组示例" }).click();
   await page.locator('[data-thought="0"]').click();
@@ -32,32 +60,39 @@ const finish = async () => {
   await page.getByRole("button", { name: "带走这一步" }).click();
 };
 await finish();
-await page.waitForFunction(() => document.querySelector(".result-card"));
+await expect.poll(() => events.length).toBe(3);
 await page.getByRole("button", { name: "再来一组" }).click();
 await finish();
 await page.reload();
-await page.goto(process.env.PREVIEW_URL || "http://127.0.0.1:4176");
+await page.goto(base);
 await finish();
-// Flush network requests rather than assuming queued events reached the receiver.
 await page.waitForLoadState("networkidle");
 assert.deepEqual(
-  events.map((e) => e.name),
+  events.map((e) => e.event),
   ["puzzle_home_open", "puzzle_first_start", "puzzle_first_complete"],
 );
-for (const e of events) assert.deepEqual(e.data, { source: "wechat_moments" });
+for (const e of events)
+  assert.deepEqual(e.properties, {
+    site: "puzzle",
+    source: "wechat_moments",
+    traffic: "test",
+    $process_person_profile: false,
+    $geoip_disable: true,
+  });
 const report = {
-  receiver: "mocked local receiver; not Vercel ingestion proof",
-  workflow:
-    "homepage → example → result → repeat → reload without UTM → repeat",
+  receiver: real
+    ? "real PostHog capture attempt; dashboard count still requires verification"
+    : "mock PostHog receiver; not ingestion proof",
   events,
-  counts: { open: 1, start: 1, complete: 1 },
-  rates: {
-    completeOverOpen: "1/1 test session only",
-    completeOverStart: "1/1 test session only",
-  },
+  responses,
+  failures,
+  attemptCounts: { open: 1, start: 1, complete: 1 },
+  dashboardVerified: false,
 };
 await writeFile(
-  "docs/analytics-preview-result.json",
+  real
+    ? "docs/posthog-real-attempt.json"
+    : "docs/analytics-preview-result.json",
   JSON.stringify(report, null, 2) + "\n",
 );
 console.log(JSON.stringify(report, null, 2));

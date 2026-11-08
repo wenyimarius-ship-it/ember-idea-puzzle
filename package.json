@@ -13,8 +13,5 @@
     "@playwright/test": "^1.56.1",
     "prettier": "^3.9.10",
     "vite": "^7.2.2"
-  },
-  "dependencies": {
-    "@vercel/analytics": "^2.0.1"
   }
 }

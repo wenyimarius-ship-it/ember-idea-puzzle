@@ -1,0 +1,47 @@
+{
+  "receiver": "real PostHog capture attempt; dashboard count still requires verification",
+  "events": [
+    {
+      "event": "puzzle_home_open",
+      "properties": {
+        "site": "puzzle",
+        "source": "wechat_moments",
+        "traffic": "test",
+        "$process_person_profile": false,
+        "$geoip_disable": true
+      }
+    },
+    {
+      "event": "puzzle_first_start",
+      "properties": {
+        "site": "puzzle",
+        "source": "wechat_moments",
+        "traffic": "test",
+        "$process_person_profile": false,
+        "$geoip_disable": true
+      }
+    },
+    {
+      "event": "puzzle_first_complete",
+      "properties": {
+        "site": "puzzle",
+        "source": "wechat_moments",
+        "traffic": "test",
+        "$process_person_profile": false,
+        "$geoip_disable": true
+      }
+    }
+  ],
+  "responses": [],
+  "failures": [
+    "net::ERR_TUNNEL_CONNECTION_FAILED",
+    "net::ERR_TUNNEL_CONNECTION_FAILED",
+    "net::ERR_TUNNEL_CONNECTION_FAILED"
+  ],
+  "attemptCounts": {
+    "open": 1,
+    "start": 1,
+    "complete": 1
+  },
+  "dashboardVerified": false
+}

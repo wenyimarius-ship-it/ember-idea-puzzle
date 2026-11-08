@@ -79,6 +79,6 @@ npm test
 
 Production 地址为先前用户确认的 https://ember-idea-puzzle.vercel.app/ 。本轮仅通过开发分支交付，不主动发布或覆盖 Production；Preview 必须从匹配提交的 Vercel 部署记录核实后使用。不要预设项目域名，不绑定 `ideas.mariustang.com`，不修改 Porkbun DNS 或现有 Lab 配置。本地与部署后的域名是不同存储来源，本地想法不会自动出现在部署站点。
 
-## 朋友圈会话统计（待预览验收）
+## PostHog 预览会话统计（未发布）
 
-仅新增可选统计，不改变玩法。启用、节点口径、会话去重、隐私边界、朋友圈筛选与完成率算法见 [统计说明](docs/analytics.md)。默认关闭，只有 `VITE_PUZZLE_ANALYTICS=vercel` 的构建会加载 Vercel 统计。需要项目支持并启用 Web Analytics 自定义事件；本轮不发布。
+仅手动发送打开、开始、完成三个节点，不启用自动浏览、自动点击或录屏。保留来源与会话去重，不上传拼图内容。Vercel `VERCEL_ENV=preview` 构建自动启用测试流量；Production 永远关闭。接收地址和公开的只写 Project token 位于 `config/posthog-preview.json`，不是 Personal API key。口径、测试结果和后台查看步骤见 [统计说明](docs/analytics.md)。

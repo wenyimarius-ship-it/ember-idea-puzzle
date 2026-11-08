@@ -6,11 +6,11 @@ export const FUNNEL_EVENTS = Object.freeze({
   complete: "puzzle_first_complete",
 });
 const sources = new Set(["wechat_moments", "direct", "other"]);
-export function createSessionFunnel({ storage, url, send }) {
+export function createSessionFunnel({ storage, url, send, key = FUNNEL_KEY }) {
   let state;
   let enabled = true;
   try {
-    const saved = JSON.parse(storage.getItem(FUNNEL_KEY) || "null");
+    const saved = JSON.parse(storage.getItem(key) || "null");
     state =
       saved && sources.has(saved.source) && Array.isArray(saved.sent)
         ? {
@@ -26,7 +26,7 @@ export function createSessionFunnel({ storage, url, send }) {
                   : "direct",
             sent: [],
           };
-    storage.setItem(FUNNEL_KEY, JSON.stringify(state));
+    storage.setItem(key, JSON.stringify(state));
   } catch {
     enabled = false;
   }
@@ -42,7 +42,7 @@ export function createSessionFunnel({ storage, url, send }) {
     try {
       // Reserve before sending: never duplicate attempts after reload or re-entry.
       state.sent.push(node);
-      storage.setItem(FUNNEL_KEY, JSON.stringify(state));
+      storage.setItem(key, JSON.stringify(state));
     } catch {
       enabled = false;
       return;

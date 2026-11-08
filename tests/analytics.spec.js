@@ -1,28 +1,28 @@
 import { test, expect } from "@playwright/test";
-const enabled = process.env.VITE_PUZZLE_ANALYTICS === "vercel";
+const enabled = process.env.PUZZLE_ANALYTICS_LOCAL_TEST === "1";
 async function collector(page) {
   const events = [];
-  await page.route("**/_vercel/insights/script.js", (route) =>
-    route.fulfill({
-      contentType: "text/javascript",
-      body: `
- let filter=event=>event;
- const handle=(command,value)=>{
-  if(command==='beforeSend'){filter=value;return;}
-  if(command==='event'){
-   const meta=filter({type:'event',url:location.href});
-   if(meta)fetch('/_vercel/insights/event',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({...meta,name:value.name,data:value.data})});
-  }
- };
- (window.vaq||[]).forEach(args=>handle(...args));window.va=handle;
- // Deliberately attempt an auto pageview; privacy filtering must discard it.
- if(filter({type:'pageview',url:location.href}))throw Error('Unexpected pageview');
- `,
-    }),
-  );
-  await page.route("**/_vercel/insights/event", async (route) => {
-    events.push(route.request().postDataJSON());
-    await route.fulfill({ status: 200, body: "{}" });
+  await page.route("https://us.i.posthog.com/i/v0/e/", async (route) => {
+    if (route.request().method() === "OPTIONS") {
+      await route.fulfill({
+        status: 204,
+        headers: {
+          "Access-Control-Allow-Origin": "*",
+          "Access-Control-Allow-Methods": "POST, OPTIONS",
+          "Access-Control-Allow-Headers": "Content-Type",
+        },
+      });
+      return;
+    }
+    const payload = route.request().postDataJSON();
+    // Never write the public collection token into test output.
+    const { api_key, ...safe } = payload;
+    events.push(safe);
+    await route.fulfill({
+      status: 200,
+      headers: { "Access-Control-Allow-Origin": "*" },
+      body: '{"status":"Ok"}',
+    });
   });
   return events;
 }
@@ -37,7 +37,7 @@ test("wechat first-touch emits exactly three events after repeat puzzles and rel
 }) => {
   test.skip(
     !enabled,
-    "Enable VITE_PUZZLE_ANALYTICS=vercel for collector integration tests",
+    "Enable PUZZLE_ANALYTICS_LOCAL_TEST=1 for collector integration tests",
   );
   const events = await collector(page);
   await page.goto("/?utm_source=wechat_moments&private=not-for-analytics");
@@ -49,16 +49,23 @@ test("wechat first-touch emits exactly three events after repeat puzzles and rel
   await page.reload();
   await page.goto("/");
   await example(page);
-  expect(events.map((e) => e.name)).toEqual([
+  expect(events.map((e) => e.event)).toEqual([
     "puzzle_home_open",
     "puzzle_first_start",
     "puzzle_first_complete",
   ]);
   for (const e of events) {
-    expect(e.data).toEqual({ source: "wechat_moments" });
-    expect(new URL(e.url).search).toBe("");
+    expect(e.properties).toEqual({
+      site: "puzzle",
+      source: "wechat_moments",
+      traffic: "test",
+      $process_person_profile: false,
+      $geoip_disable: true,
+    });
+    expect(e.url).toBeUndefined();
   }
   expect(JSON.stringify(events)).not.toContain("private");
+  expect(new Set(events.map((e) => e.distinct_id)).size).toBe(1);
 });
 test("custom flow counts opening/starting/completion, never textarea content; new session counts anew", async ({
   page,
@@ -92,7 +99,7 @@ test("blocked session storage disables tracking without breaking puzzle", async 
   await page.addInitScript(() => {
     const get = Storage.prototype.getItem;
     Storage.prototype.getItem = function (key) {
-      if (key === "idea-puzzle-funnel-v1") throw Error("blocked");
+      if (key === "idea-puzzle-funnel-posthog-test-v1") throw Error("blocked");
       return get.call(this, key);
     };
   });
@@ -103,4 +110,16 @@ test("blocked session storage disables tracking without breaking puzzle", async 
     page.getByRole("heading", { name: "这一组，拼好了。" }),
   ).toBeVisible();
   expect(events).toEqual([]);
+});
+test("untagged Preview sends nothing and does not consume the later tagged test", async ({
+  page,
+}) => {
+  test.skip(!enabled, "Enable collector integration tests");
+  const events = await collector(page);
+  await page.goto("/");
+  await example(page);
+  expect(events).toEqual([]);
+  await page.goto("/?utm_source=wechat_moments");
+  await example(page);
+  await expect.poll(() => events.length).toBe(3);
 });
