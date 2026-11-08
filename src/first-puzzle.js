@@ -1,3 +1,4 @@
+import { recordPuzzleNode } from "./analytics.js";
 // Deliberately separate from the saved workspace: examples never mutate v1 data.
 export const exampleThoughts = ["想改主页", "不知道先改哪", "今晚只有 20 分钟"];
 export const examplePairs = {
@@ -93,6 +94,7 @@ export function mountFirstPuzzle(openWorkspace) {
   function change(next) {
     screen = next;
     render();
+    if (next === "result") recordPuzzleNode("complete");
     focusTitle();
   }
   function reset() {
@@ -139,12 +141,14 @@ export function mountFirstPuzzle(openWorkspace) {
       if (el) el.onclick = fn;
     };
     on("examples", () => {
+      recordPuzzleNode("start");
       mode = "example";
       thoughts = [...exampleThoughts];
       reset();
       change("choose");
     });
     on("own", () => {
+      recordPuzzleNode("start");
       mode = "custom";
       reset();
       change("write");

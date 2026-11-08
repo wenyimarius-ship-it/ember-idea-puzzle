@@ -1,3 +1,4 @@
+import { recordPuzzleNode } from "./analytics.js";
 import "./style.css";
 import "./first-puzzle.css";
 import { mountFirstPuzzle } from "./first-puzzle.js";
@@ -20,6 +21,7 @@ async function openWorkspace() {
   remember("workspace");
   window.scrollTo(0, 0);
 }
+recordPuzzleNode("open");
 returnToPuzzle = mountFirstPuzzle(openWorkspace);
 try {
   if (sessionStorage.getItem(VIEW_KEY) === "workspace") openWorkspace();

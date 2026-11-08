@@ -78,3 +78,7 @@ npm test
 5. 只有默认地址已验证可用后，才另行将真实链接加入 Lab 项目列表。
 
 Production 地址为先前用户确认的 https://ember-idea-puzzle.vercel.app/ 。本轮仅通过开发分支交付，不主动发布或覆盖 Production；Preview 必须从匹配提交的 Vercel 部署记录核实后使用。不要预设项目域名，不绑定 `ideas.mariustang.com`，不修改 Porkbun DNS 或现有 Lab 配置。本地与部署后的域名是不同存储来源，本地想法不会自动出现在部署站点。
+
+## 朋友圈会话统计（待预览验收）
+
+仅新增可选统计，不改变玩法。启用、节点口径、会话去重、隐私边界、朋友圈筛选与完成率算法见 [统计说明](docs/analytics.md)。默认关闭，只有 `VITE_PUZZLE_ANALYTICS=vercel` 的构建会加载 Vercel 统计。需要项目支持并启用 Web Analytics 自定义事件；本轮不发布。

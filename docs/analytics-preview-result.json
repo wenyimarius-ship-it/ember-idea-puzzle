@@ -1,0 +1,39 @@
+{
+  "receiver": "mocked local receiver; not Vercel ingestion proof",
+  "workflow": "homepage → example → result → repeat → reload without UTM → repeat",
+  "events": [
+    {
+      "type": "event",
+      "url": "http://127.0.0.1:4176/",
+      "name": "puzzle_home_open",
+      "data": {
+        "source": "wechat_moments"
+      }
+    },
+    {
+      "type": "event",
+      "url": "http://127.0.0.1:4176/",
+      "name": "puzzle_first_start",
+      "data": {
+        "source": "wechat_moments"
+      }
+    },
+    {
+      "type": "event",
+      "url": "http://127.0.0.1:4176/",
+      "name": "puzzle_first_complete",
+      "data": {
+        "source": "wechat_moments"
+      }
+    }
+  ],
+  "counts": {
+    "open": 1,
+    "start": 1,
+    "complete": 1
+  },
+  "rates": {
+    "completeOverOpen": "1/1 test session only",
+    "completeOverStart": "1/1 test session only"
+  }
+}
