@@ -33,7 +33,6 @@ export function makePostHogPayload(
 ) {
   if (
     !Object.values(FUNNEL_EVENTS).includes(event) ||
-    source !== "wechat_moments" ||
     !["test", "production"].includes(traffic)
   )
     return null;
@@ -62,13 +61,6 @@ export function recordPuzzleNode(node) {
       location.href,
     );
     if (!context) return;
-    const saved = JSON.parse(sessionStorage.getItem(context.key) || "null");
-    if (
-      new URL(location.href).searchParams.get("utm_source") !==
-        "wechat_moments" &&
-      saved?.source !== "wechat_moments"
-    )
-      return;
     if (!funnel || activeKey !== context.key) {
       activeKey = context.key;
       let distinctId = sessionStorage.getItem(context.idKey);
