@@ -1,3 +1,4 @@
+import { mountCloudVault } from "./cloud-vault.js";
 import { installCanvasAnalytics } from "./canvas-analytics.js";
 import "./style.css";
 import { KEY, colors, fresh, validate } from "./state.js";
@@ -27,10 +28,10 @@ $("#app").innerHTML =
   `<header><a class="brand" href="./"><span class="mark">✣</span><span>Idea Puzzle<small>EMBER LAB / 想法拼图</small></span></a><div class="header-right"><span id="save-status" role="status">仅保存在此浏览器</span><button id="help" class="icon" aria-label="使用指南">?</button></div></header>
 <main><section class="workspace"><div class="intro"><div><p class="eyebrow">A LITTLE ROOM FOR YOUR THOUGHTS</p><h1>给想法一点空间<span>。</span></h1><p class="subtitle">把零散放下，让联系浮现。从一个小行动开始。</p></div><button class="primary" id="add">＋ 新想法</button></div>
 <div class="toolbar"><div><span class="live-dot"></span><span id="count"></span><span class="divider">/</span><span class="drag-tip">拖动手柄整理 · 点击卡片编辑</span></div><details><summary>画布选项 <span>⌄</span></summary><div class="menu"><button id="export">导出 JSON</button><button id="restore">恢复初始示例</button><button id="clear" class="danger">清空画布</button></div></details></div>
-<div id="storage-warning" role="alert" hidden></div><div class="viewport" aria-label="可滚动的想法画布" tabindex="0"><div id="board"><div id="groups"></div><div id="cards"></div><div id="empty" hidden><span>✣</span><h2>留白，也是一个开始。</h2><p>一个问题、一闪而过的念头，或者还没想好的计划。</p><button class="primary" id="empty-add">写下第一个想法</button></div><span class="board-note">THINK LOOSELY. CONNECT FREELY.</span></div></div><footer><span>你的思考，不必排成直线。</span><span>私密 · 无账号 · 本地保存</span></footer></section>
+<div id="storage-warning" role="alert" hidden></div><div class="viewport" aria-label="可滚动的想法画布" tabindex="0"><div id="board"><div id="groups"></div><div id="cards"></div><div id="empty" hidden><span>✣</span><h2>留白，也是一个开始。</h2><p>一个问题、一闪而过的念头，或者还没想好的计划。</p><button class="primary" id="empty-add">写下第一个想法</button></div><span class="board-note">THINK LOOSELY. CONNECT FREELY.</span></div></div><footer><span>你的思考，不必排成直线。</span><span>无账号 · 默认本地 · 可选云端</span></footer></section>
 <aside><section id="editor"></section><section class="action-panel"><p class="eyebrow">ONE SMALL STEP</p><h2>把想法变成下一步 <span>↗</span></h2><div id="action"></div></section><div class="side-note"><span>✳</span><p>先收集，再连接。<br>不用一次想明白所有事情。</p></div></aside></main>
 <dialog id="confirm"><form method="dialog"><p class="eyebrow">整理之前，确认一下</p><h2 id="confirm-title"></h2><p id="confirm-copy"></p><div class="dialog-actions"><button value="cancel">取消</button><button value="ok" class="primary">确认</button></div></form></dialog>
-<dialog id="guide"><form method="dialog"><span class="guide-symbol">✣</span><p class="eyebrow">WELCOME TO YOUR THINKING DESK</p><h2>想法不必一开始就有答案。</h2><ol><li><b>放下来</b><span>新建卡片，记录多行文字，用颜色和分类标记。</span></li><li><b>连起来</b><span>拖动顶部手柄整理位置，在编辑栏加入同一主题。</span></li><li><b>迈一步</b><span>选中一张卡片，把它设为下一步行动。</span></li></ol><p>手机上滑动画布浏览；按住手柄拖动。选中手柄后，也可用方向键微调位置。</p><p>内容仅保存在当前浏览器，清理浏览器数据会丢失；建议定期导出 JSON。</p><button class="primary" value="ok">开始拼图 ↗</button></form></dialog>`;
+<dialog id="guide"><form method="dialog"><span class="guide-symbol">✣</span><p class="eyebrow">WELCOME TO YOUR THINKING DESK</p><h2>想法不必一开始就有答案。</h2><ol><li><b>放下来</b><span>新建卡片，记录多行文字，用颜色和分类标记。</span></li><li><b>连起来</b><span>拖动顶部手柄整理位置，在编辑栏加入同一主题。</span></li><li><b>迈一步</b><span>选中一张卡片，把它设为下一步行动。</span></li></ol><p>手机上滑动画布浏览；按住手柄拖动。选中手柄后，也可用方向键微调位置。</p><p>内容默认保存在当前浏览器。可在页面底部主动保存云端副本；清理浏览器数据前，请保管恢复码或导出 JSON。</p><button class="primary" value="ok">开始拼图 ↗</button></form></dialog>`;
 function save() {
   if (blocked) return;
   try {
@@ -373,3 +374,9 @@ render();
 if (!state.welcomed) $("#guide").showModal();
 
 installCanvasAnalytics();
+
+const cloudAnalytics = typeof __POSTHOG_CONFIG__ !== 'undefined' ? __POSTHOG_CONFIG__ : null;
+mountCloudVault({site:'puzzle',getState:()=>({schema:1,data:state}),restore:payload=>{
+  if(payload?.schema!==1)throw Error('invalid_payload');
+  const next=validate(payload.data);state=next;state.welcomed=true;selected=null;save();render();
+},analytics:cloudAnalytics?{enabled:cloudAnalytics.environment==='production',token:cloudAnalytics.token,apiHost:cloudAnalytics.apiHost}:null});

@@ -36,3 +36,7 @@ npm run preview
 ## 部署
 
 Vercel 项目 `ember-idea-puzzle` 从本仓库 `main` 部署，核对到的 Production 记录为 READY（`dc72894`）。使用 Vite preset，从仓库根目录安装依赖并运行 `npm run build`，发布 `dist/`。基础功能无需密钥、账号或数据库。自定义域名和默认 Vercel 地址的画布数据各自保存在对应站点来源。平台 READY 状态与 PostHog 实际入库是两项独立检查。
+
+## 云端副本
+
+新增主动保存与恢复入口，默认仍在本地使用。恢复码支持换设备取回、更新、删除云端副本；正文进入 Supabase，PostHog 只记录行为。详见 [接入与权限说明](docs/cloud-persistence.md)。

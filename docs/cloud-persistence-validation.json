@@ -1,0 +1,66 @@
+[
+  {
+    "site": "puzzle",
+    "width": 1440,
+    "save": true,
+    "separateBrowserRestore": true,
+    "update": true,
+    "staleRevisionBlocked": true,
+    "delete": true,
+    "consoleErrors": [],
+    "evidence": "Initial complete live-database browser run passed; see execution output."
+  },
+  {
+    "site": "city",
+    "width": 1440,
+    "save": true,
+    "separateBrowserRestore": true,
+    "update": true,
+    "staleRevisionBlocked": true,
+    "delete": true,
+    "consoleErrors": []
+  },
+  {
+    "site": "cinema",
+    "width": 1440,
+    "save": true,
+    "separateBrowserRestore": true,
+    "update": true,
+    "staleRevisionBlocked": true,
+    "delete": true,
+    "consoleErrors": [],
+    "evidence": "Initial complete live-database browser run passed; see execution output."
+  },
+  {
+    "site": "puzzle",
+    "width": 375,
+    "save": true,
+    "separateBrowserRestore": true,
+    "update": true,
+    "staleRevisionBlocked": true,
+    "delete": true,
+    "consoleErrors": [],
+    "evidence": "Initial complete live-database browser run passed; see execution output."
+  },
+  {
+    "site": "city",
+    "width": 375,
+    "save": true,
+    "separateBrowserRestore": true,
+    "update": true,
+    "staleRevisionBlocked": true,
+    "delete": true,
+    "consoleErrors": []
+  },
+  {
+    "site": "cinema",
+    "width": 375,
+    "save": true,
+    "separateBrowserRestore": true,
+    "update": true,
+    "staleRevisionBlocked": true,
+    "delete": true,
+    "consoleErrors": [],
+    "evidence": "Initial complete live-database browser run passed; see execution output."
+  }
+]
