@@ -1,0 +1,3 @@
+{
+  "git": { "deploymentEnabled": { "fix/share-metadata": false } }
+}
