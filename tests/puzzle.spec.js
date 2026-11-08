@@ -1,8 +1,9 @@
 import { test, expect } from "@playwright/test";
+import { enterWorkspace } from "./helpers.js";
 import { KEY } from "../src/state.js";
 async function start(page) {
   await page.goto("/");
-  await page.getByRole("button", { name: "开始拼图" }).click();
+  await enterWorkspace(page);
 }
 async function confirm(page) {
   await page
@@ -132,16 +133,16 @@ test("storage quota failure is visible and editing still works", async ({
     };
   });
   await start(page);
-  await expect(page.getByRole("alert")).toContainText("本地保存失败");
   await page.getByRole("button", { name: "＋ 新想法", exact: true }).click();
+  await expect(page.getByRole("alert")).toContainText("本地保存失败");
   await page.getByLabel("内容", { exact: true }).fill("临时想法");
   await expect(page.locator(".card").last()).toContainText("临时想法");
 });
 test("corrupt storage is preserved and warning shown", async ({ page }) => {
   await page.addInitScript((key) => localStorage.setItem(key, "broken"), KEY);
   await page.goto("/");
+  await enterWorkspace(page);
   await expect(page.getByRole("alert")).toContainText("原有数据不会被覆盖");
-  await page.getByRole("button", { name: "开始拼图" }).click();
   expect(await page.evaluate((key) => localStorage.getItem(key), KEY)).toBe(
     "broken",
   );
@@ -202,10 +203,8 @@ test("touch on canvas scrolls without dragging cards", async ({
   await expect
     .poll(() => page.locator(".viewport").evaluate((el) => el.scrollTop))
     .toBeGreaterThan(20);
+  await expect(page.locator(".card").first()).toHaveCSS("top", "110px");
   expect(
-    await page.evaluate(
-      (key) => JSON.parse(localStorage.getItem(key)).cards[0].y,
-      KEY,
-    ),
-  ).toBe(110);
+    await page.evaluate((key) => localStorage.getItem(key), KEY),
+  ).toBeNull();
 });
