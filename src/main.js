@@ -1,3 +1,4 @@
+import { installCanvasAnalytics } from "./canvas-analytics.js";
 import "./style.css";
 import { KEY, colors, fresh, validate } from "./state.js";
 const $ = (s) => document.querySelector(s);
@@ -370,3 +371,5 @@ $("#guide").addEventListener("close", () => {
 });
 render();
 if (!state.welcomed) $("#guide").showModal();
+
+installCanvasAnalytics();

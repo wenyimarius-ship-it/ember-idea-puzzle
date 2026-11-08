@@ -1,0 +1,50 @@
+{
+  "cases": [
+    {
+      "width": 375,
+      "traffic": "test",
+      "counts": {
+        "open": 1,
+        "start": 1,
+        "complete": 1
+      },
+      "productionReportRows": 0,
+      "receiver": "mocked; not live Production evidence"
+    },
+    {
+      "width": 375,
+      "traffic": "production",
+      "counts": {
+        "open": 1,
+        "start": 1,
+        "complete": 1
+      },
+      "productionReportRows": 3,
+      "receiver": "mocked; not live Production evidence"
+    },
+    {
+      "width": 1440,
+      "traffic": "test",
+      "counts": {
+        "open": 1,
+        "start": 1,
+        "complete": 1
+      },
+      "productionReportRows": 0,
+      "receiver": "mocked; not live Production evidence"
+    },
+    {
+      "width": 1440,
+      "traffic": "production",
+      "counts": {
+        "open": 1,
+        "start": 1,
+        "complete": 1
+      },
+      "productionReportRows": 3,
+      "receiver": "mocked; not live Production evidence"
+    }
+  ],
+  "liveDeploymentVerified": false,
+  "posthogProductionReceiptVerified": false
+}
