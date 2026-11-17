@@ -411,6 +411,62 @@ h2 {
   float: right;
   color: #8d9b86;
 }
+#action-feedback {
+  min-height: 136px;
+  margin-top: 12px;
+  visibility: hidden;
+  font-size: 12px;
+  line-height: 1.8;
+}
+#action-feedback.feedback-ready {
+  visibility: visible;
+}
+#action-feedback p {
+  margin: 8px 0;
+}
+.feedback-options {
+  display: flex;
+  gap: 8px;
+}
+.feedback-options button {
+  min-width: 44px;
+  min-height: 44px;
+  flex: 1;
+  padding: 8px;
+}
+.feedback-options button[aria-pressed="true"] {
+  background: var(--green);
+  border-color: var(--green);
+  color: #fffdf2;
+}
+.feedback-options button:disabled {
+  cursor: default;
+}
+.feedback-status {
+  min-height: 22px;
+  color: #617458;
+}
+.json-transfer {
+  width: calc(100% - 40px);
+  max-width: 1120px;
+  margin: 24px auto 32px;
+  padding-top: 20px;
+  border-top: 1px solid var(--line);
+}
+.json-transfer-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+.json-transfer button {
+  min-height: 44px;
+}
+#import-status {
+  min-height: 48px;
+  font-size: 12px;
+  line-height: 1.8;
+  overflow-wrap: anywhere;
+}
 .action-empty {
   font-size: 35px;
   color: #aab69e;
