@@ -1,5 +1,10 @@
 import { test, expect } from "@playwright/test";
-import { KEY } from "../src/state.js";
+import { KEY, fresh } from "../src/state.js";
+import {
+  BACKUP_KEY,
+  EXPORT_SCHEMA,
+  MAX_IMPORT_BYTES,
+} from "../src/json-transfer.js";
 async function start(page) {
   await page.goto("/");
   await page.getByRole("button", { name: "开始拼图" }).click();
@@ -17,7 +22,9 @@ test.describe("375px mobile canvas", () => {
     hasTouch: true,
   });
 
-  test("new card intersects the current canvas after scrolling", async ({ page }) => {
+  test("new card intersects the current canvas after scrolling", async ({
+    page,
+  }) => {
     await start(page);
     const viewport = page.locator(".viewport");
     const visible = await viewport.evaluate((el) => {
@@ -287,4 +294,417 @@ test("touch on canvas scrolls without dragging cards", async ({
       KEY,
     ),
   ).toBe(110);
+});
+
+test("feedback appears only after explicit completion, supports keyboard and keeps layout stable", async ({
+  page,
+}, testInfo) => {
+  await page.setViewportSize({
+    width: testInfo.project.name === "mobile" ? 375 : 1440,
+    height: 812,
+  });
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await start(page);
+  const slot = page.locator("#action-feedback");
+  await expect(slot).toBeHidden();
+  const before = await page
+    .locator(".side-note")
+    .evaluate((el) => el.getBoundingClientRect().top + scrollY);
+  await page.locator("#action-text").fill("");
+  await page.locator("#done").check();
+  await expect(slot).toBeHidden();
+  await page.locator("#done").uncheck();
+  await page.locator("#action-text").fill("仅在浏览器里的行动");
+  await page.locator("#done").check();
+  await expect(slot).toBeVisible();
+  const readyHeight = await slot.evaluate((el) => el.offsetHeight);
+  for (const button of await slot.getByRole("button").all()) {
+    const size = await button.boundingBox();
+    expect(size.width).toBeGreaterThanOrEqual(44);
+    expect(size.height).toBeGreaterThanOrEqual(44);
+    await expect(button).toHaveCSS("transition-duration", "0s");
+  }
+  const useful = slot.getByRole("button", { name: "有用", exact: true });
+  await useful.focus();
+  await useful.press("Enter");
+  await expect(slot).toContainText("谢谢你的反馈");
+  await expect(useful).toHaveAttribute("aria-pressed", "true");
+  for (const button of await slot.getByRole("button").all())
+    await expect(button).toBeDisabled();
+  expect(await slot.evaluate((el) => el.offsetHeight)).toBe(readyHeight);
+  // Scroll/focus can move the document, so compare document-relative positions.
+  const after = await page
+    .locator(".side-note")
+    .evaluate((el) => el.getBoundingClientRect().top + scrollY);
+  expect(after).toBe(before);
+  await page.reload();
+  await expect(slot).toContainText("谢谢你的反馈");
+  await expect(
+    slot.getByRole("button", { name: "一般", exact: true }),
+  ).toBeDisabled();
+  expect(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth <= innerWidth,
+    ),
+  ).toBe(true);
+});
+
+async function downloadJson(page) {
+  if (
+    !(await page
+      .getByRole("button", { name: "导出 JSON", exact: true })
+      .isVisible())
+  )
+    await page.getByText("画布选项", { exact: false }).click();
+  const downloaded = page.waitForEvent("download");
+  await page.getByRole("button", { name: "导出 JSON", exact: true }).click();
+  const file = await downloaded;
+  const fs = await import("node:fs/promises");
+  return JSON.parse(await fs.readFile(await file.path(), "utf8"));
+}
+async function uploadJson(page, state) {
+  await page.locator("#import-file").setInputFiles({
+    name: "puzzle.json",
+    mimeType: "application/json",
+    buffer: Buffer.from(JSON.stringify(state)),
+  });
+}
+async function storedCanvas(page) {
+  return page.evaluate((key) => localStorage.getItem(key), KEY);
+}
+async function startSaved(page) {
+  await start(page);
+  await expect(page.locator("#save-status")).toHaveText(
+    "已自动保存 · 此浏览器",
+  );
+}
+
+test("JSON export-import round-trip requires confirmation and restore undoes the replacement", async ({
+  page,
+}, testInfo) => {
+  await page.setViewportSize({
+    width: testInfo.project.name === "mobile" ? 375 : 1440,
+    height: 812,
+  });
+  await startSaved(page);
+  const exported = await downloadJson(page);
+  expect(exported.schema).toBe(EXPORT_SCHEMA);
+  expect(exported.version).toBe(1);
+  await page.getByRole("button", { name: "＋ 新想法", exact: true }).click();
+  await page.getByLabel("内容", { exact: true }).fill("导入前要保留的内容");
+  const before = await storedCanvas(page);
+  await expect(page.locator("#restore-backup")).toBeDisabled();
+  const chooser = page.waitForEvent("filechooser");
+  await page.getByRole("button", { name: "导入 JSON", exact: true }).click();
+  await (
+    await chooser
+  ).setFiles({
+    name: "export.json",
+    mimeType: "application/json",
+    buffer: Buffer.from(JSON.stringify(exported)),
+  });
+  await expect(page.locator("#confirm-copy")).toHaveText(
+    "将用导入的内容替换当前画布：4 张卡片、1 个主题。当前画布会先在本机备份一份。",
+  );
+  expect(await storedCanvas(page)).toBe(before);
+  await page
+    .getByRole("dialog")
+    .getByRole("button", { name: "取消", exact: true })
+    .click();
+  expect(await storedCanvas(page)).toBe(before);
+  expect(
+    await page.evaluate((key) => localStorage.getItem(key), BACKUP_KEY),
+  ).toBeNull();
+  await uploadJson(page, exported);
+  await confirm(page);
+  await expect(page.locator("#import-status")).toContainText("已导入。");
+  const { schema, ...canvas } = exported;
+  expect(JSON.parse(await storedCanvas(page))).toEqual(canvas);
+  expect(
+    await page.evaluate((key) => localStorage.getItem(key), BACKUP_KEY),
+  ).toBe(before);
+  expect(await downloadJson(page)).toEqual(exported);
+  await page.reload();
+  await page.getByRole("button", { name: "恢复上一份", exact: true }).click();
+  await confirm(page);
+  await expect(page.locator("#import-status")).toContainText("已恢复上一份");
+  expect(await storedCanvas(page)).toBe(before);
+  await expect(page.locator(".card").last()).toContainText(
+    "导入前要保留的内容",
+  );
+  expect(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth <= innerWidth,
+    ),
+  ).toBe(true);
+});
+
+test("invalid and oversized imports preserve the canvas and undo slot", async ({
+  page,
+}) => {
+  await startSaved(page);
+  const before = await storedCanvas(page);
+  const backup = "previous backup must remain";
+  await page.evaluate(
+    ([key, text]) => localStorage.setItem(key, text),
+    [BACKUP_KEY, backup],
+  );
+  const missing = fresh();
+  delete missing.cards[0].text;
+  const offCanvas = fresh();
+  offCanvas.cards[0].x = 2460;
+  const tooMany = fresh();
+  tooMany.cards = Array.from({ length: 1001 }, (_, i) => ({
+    ...tooMany.cards[0],
+    id: String(i),
+  }));
+  const cases = [
+    { text: "not JSON", message: "有效的 JSON" },
+    { text: JSON.stringify(missing), message: "字段" },
+    { text: JSON.stringify(offCanvas), message: "坐标" },
+    { text: JSON.stringify(tooMany), message: "1000" },
+    { text: " ".repeat(MAX_IMPORT_BYTES + 1), message: "1 MB" },
+  ];
+  for (const item of cases) {
+    await page.locator("#import-file").setInputFiles({
+      name: "invalid.json",
+      mimeType: "application/json",
+      buffer: Buffer.from(item.text),
+    });
+    await expect(page.locator("#import-status")).toContainText(item.message);
+    expect(await storedCanvas(page)).toBe(before);
+    expect(
+      await page.evaluate((key) => localStorage.getItem(key), BACKUP_KEY),
+    ).toBe(backup);
+    await expect(page.locator("#confirm")).not.toBeVisible();
+    await expect(page.locator(".card")).toHaveCount(4);
+  }
+});
+
+test("legacy import drops unknown fields and renders HTML as text without executing it", async ({
+  page,
+}) => {
+  await startSaved(page);
+  const before = await storedCanvas(page);
+  const state = fresh();
+  delete state.version;
+  state.cards[0].text = '<img src=x onerror="window.importExecuted=true">';
+  state.cards[0].category = "<b>分类</b>";
+  state.groups[0].name = "<em>主题</em>";
+  state.action.text = "<script>window.importExecuted=true</script>";
+  state.privateExtra = "must be discarded";
+  state.cards[0].extra = "discarded";
+  await uploadJson(page, state);
+  await confirm(page);
+  await expect(page.locator("#import-status")).toContainText("已导入。");
+  await expect(page.locator(".card").first()).toContainText(
+    state.cards[0].text,
+  );
+  await expect(page.locator("#groups")).toContainText(state.groups[0].name);
+  await expect(page.locator("#action-text")).toHaveValue(state.action.text);
+  await expect(
+    page.locator("#cards img, #cards script, #groups em"),
+  ).toHaveCount(0);
+  expect(await page.evaluate(() => window.importExecuted)).toBeUndefined();
+  const imported = JSON.parse(await storedCanvas(page));
+  expect(imported.version).toBe(1);
+  expect(imported.privateExtra).toBeUndefined();
+  expect(imported.cards[0].extra).toBeUndefined();
+  expect(
+    await page.evaluate((key) => localStorage.getItem(key), BACKUP_KEY),
+  ).toBe(before);
+});
+
+test("failed backup or canvas writes leave existing data intact and editing/export usable", async ({
+  page,
+}) => {
+  await startSaved(page);
+  const before = await storedCanvas(page);
+  await page.evaluate(
+    (key) => localStorage.setItem(key, "old backup"),
+    BACKUP_KEY,
+  );
+  for (const failedKey of [BACKUP_KEY, KEY]) {
+    await page.evaluate((key) => {
+      window.originalStorageWrite ??= Storage.prototype.setItem;
+      Storage.prototype.setItem = function (name, value) {
+        if (name === key) throw new DOMException("Quota", "QuotaExceededError");
+        return window.originalStorageWrite.call(this, name, value);
+      };
+    }, failedKey);
+    await uploadJson(page, { ...fresh(), cards: [], groups: [], action: null });
+    await confirm(page);
+    await expect(page.locator("#import-status")).toContainText("存储写入失败");
+    expect(await storedCanvas(page)).toBe(before);
+    expect(
+      await page.evaluate((key) => localStorage.getItem(key), BACKUP_KEY),
+    ).toBe("old backup");
+    await expect(page.locator(".card")).toHaveCount(4);
+  }
+  // A failed primary-key write still allows in-memory edits and export.
+  await page.getByRole("button", { name: "编辑想法 1", exact: true }).click();
+  await page
+    .getByLabel("内容", { exact: true })
+    .fill("存储故障时仍能编辑和导出");
+  await expect(page.getByRole("alert")).toContainText("本地保存失败");
+  expect((await downloadJson(page)).cards[0].text).toBe(
+    "存储故障时仍能编辑和导出",
+  );
+  expect(await storedCanvas(page)).toBe(before);
+});
+
+test("corrupt active records are never overwritten by import", async ({
+  page,
+}) => {
+  await page.addInitScript(
+    (key) => localStorage.setItem(key, "broken record"),
+    KEY,
+  );
+  await start(page);
+  await uploadJson(page, fresh());
+  await confirm(page);
+  await expect(page.locator("#import-status")).toContainText(
+    "原记录不会被覆盖",
+  );
+  expect(await storedCanvas(page)).toBe("broken record");
+  expect(
+    await page.evaluate((key) => localStorage.getItem(key), BACKUP_KEY),
+  ).toBeNull();
+});
+
+test("a saved completed action does not automatically open the feedback prompt", async ({
+  page,
+}) => {
+  const saved = fresh();
+  saved.welcomed = true;
+  saved.action.done = true;
+  await page.addInitScript(
+    ([key, value]) => localStorage.setItem(key, value),
+    [KEY, JSON.stringify(saved)],
+  );
+  await page.goto("/");
+  await expect(page.locator("#done")).toBeChecked();
+  await expect(page.locator("#action-feedback")).toBeHidden();
+  await page.locator("#done").uncheck();
+  await page.locator("#done").check();
+  await expect(page.locator("#action-feedback")).toBeVisible();
+});
+
+test("a damaged undo slot leaves the current canvas unchanged", async ({
+  page,
+}) => {
+  await startSaved(page);
+  const before = await storedCanvas(page);
+  await page.evaluate(
+    (key) => localStorage.setItem(key, "damaged backup"),
+    BACKUP_KEY,
+  );
+  await page.reload();
+  await page.locator("#restore-backup").click();
+  await expect(page.locator("#import-status")).toContainText("恢复未完成");
+  expect(await storedCanvas(page)).toBe(before);
+  expect(
+    await page.evaluate((key) => localStorage.getItem(key), BACKUP_KEY),
+  ).toBe("damaged backup");
+});
+
+test("feedback capture excludes user content and URL and sends once per session", async ({
+  page,
+}) => {
+  const production = process.env.VERCEL_ENV === "production";
+  const simulated = process.env.PUZZLE_ANALYTICS_LOCAL_TEST === "1";
+  test.skip(
+    !production && !simulated,
+    "Enable the existing local analytics simulation or a local production build",
+  );
+  const events = [];
+  await page.route("https://us.i.posthog.com/i/v0/e/", async (route) => {
+    if (route.request().method() !== "OPTIONS")
+      events.push(route.request().postDataJSON());
+    await route.fulfill({
+      status: 200,
+      headers: {
+        "Access-Control-Allow-Origin": "*",
+        "Access-Control-Allow-Headers": "Content-Type",
+      },
+      body: '{"status":"Ok"}',
+    });
+  });
+  if (production) {
+    // Serve the local app under its formal origin; never contact the live site.
+    await page.routeWebSocket("wss://puzzle.mariustang.com/**", (socket) =>
+      socket.close(),
+    );
+    await page.route("https://puzzle.mariustang.com/**", async (route) => {
+      const url = new URL(route.request().url());
+      const response = await page.request.get(
+        "http://127.0.0.1:4173" + url.pathname + url.search,
+      );
+      await route.fulfill({ response });
+    });
+  }
+  const url = production
+    ? "https://puzzle.mariustang.com/?analytics_test=1&private=secret-url"
+    : "/?analytics_test=1&private=secret-url";
+  await page.goto(url);
+  await page.getByRole("button", { name: "开始拼图" }).click();
+  await page.getByRole("button", { name: "编辑想法 1", exact: true }).click();
+  await page.getByLabel("内容", { exact: true }).fill("secret-card-text");
+  await page.getByRole("textbox", { name: "新主题名称" }).fill("secret-theme");
+  await page.getByRole("button", { name: "创建主题并加入" }).click();
+  await page.locator("#action-text").fill("secret-action-text");
+  await page.locator("#done").check();
+  await page
+    .locator("#action-feedback")
+    .getByRole("button", { name: "一般", exact: true })
+    .click();
+  await expect
+    .poll(() => events.filter((e) => e.event === "puzzle_feedback").length)
+    .toBe(1);
+  const feedback = events.find((e) => e.event === "puzzle_feedback");
+  expect(feedback.properties).toEqual({
+    site: "puzzle",
+    rating: "neutral",
+    traffic: "test",
+  });
+  expect(JSON.stringify(feedback)).not.toMatch(
+    /secret|url|card|theme|action-text/,
+  );
+  expect(feedback.distinct_id).toBe(
+    events.find((e) => e.event === "puzzle_home_open").distinct_id,
+  );
+  await page.locator("#done").uncheck();
+  await page.locator("#done").check();
+  await page.reload();
+  await expect(page.locator("#action-feedback")).toContainText("谢谢你的反馈");
+  for (const button of await page.locator("#action-feedback button").all())
+    await expect(button).toBeDisabled();
+  expect(events.filter((e) => e.event === "puzzle_feedback")).toHaveLength(1);
+  if (production) {
+    // A production-configured build on an unapproved origin must not send
+    // feedback, even though the existing funnel remains unchanged.
+    await page.goto("http://127.0.0.1:4173/");
+    await page.getByRole("button", { name: "开始拼图" }).click();
+    await page.evaluate(() => {
+      window.feedbackAttempts = 0;
+      const original = window.fetch;
+      window.fetch = (...args) => {
+        if (
+          args[1]?.body &&
+          JSON.parse(args[1].body).event === "puzzle_feedback"
+        )
+          window.feedbackAttempts++;
+        return original(...args);
+      };
+    });
+    await page.locator("#done").check();
+    await page
+      .locator("#action-feedback")
+      .getByRole("button", { name: "有用", exact: true })
+      .click();
+    await expect(page.locator("#action-feedback")).toContainText(
+      "谢谢你的反馈",
+    );
+    expect(await page.evaluate(() => window.feedbackAttempts)).toBe(0);
+  }
 });
