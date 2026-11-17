@@ -10,6 +10,85 @@ async function confirm(page) {
     .getByRole("button", { name: "确认", exact: true })
     .click();
 }
+test.describe("375px mobile canvas", () => {
+  test.use({
+    viewport: { width: 375, height: 812 },
+    isMobile: true,
+    hasTouch: true,
+  });
+
+  test("new card intersects the current canvas after scrolling", async ({ page }) => {
+    await start(page);
+    const viewport = page.locator(".viewport");
+    const visible = await viewport.evaluate((el) => {
+      el.scrollLeft = 1200;
+      el.scrollTop = 800;
+      return {
+        left: el.scrollLeft,
+        top: el.scrollTop,
+        right: el.scrollLeft + el.clientWidth,
+        bottom: el.scrollTop + el.clientHeight,
+      };
+    });
+    expect(visible.left).toBe(1200);
+    expect(visible.top).toBe(800);
+    const count = await page.locator(".card").count();
+
+    await page.getByRole("button", { name: "＋ 新想法", exact: true }).click();
+    await expect(page.locator(".card")).toHaveCount(count + 1);
+    const card = page.locator(".card").last();
+    await expect(card).toHaveClass(/selected/);
+
+    // Check the original scrolled region too, so scrollIntoView cannot mask
+    // a card that was created back at the canvas origin.
+    const position = await card.evaluate((el) => ({
+      x: el.offsetLeft,
+      y: el.offsetTop,
+      width: el.offsetWidth,
+      height: el.offsetHeight,
+    }));
+    expect(position.x).toBeLessThan(visible.right);
+    expect(position.x + position.width).toBeGreaterThan(visible.left);
+    expect(position.y).toBeLessThan(visible.bottom);
+    expect(position.y + position.height).toBeGreaterThan(visible.top);
+
+    const box = await card.boundingBox();
+    const clip = await viewport.evaluate((el) => {
+      const rect = el.getBoundingClientRect();
+      return {
+        x: rect.left + el.clientLeft,
+        y: rect.top + el.clientTop,
+        width: el.clientWidth,
+        height: el.clientHeight,
+      };
+    });
+    expect(box).not.toBeNull();
+    expect(Math.min(box.x + box.width, clip.x + clip.width)).toBeGreaterThan(
+      Math.max(box.x, clip.x),
+    );
+    expect(Math.min(box.y + box.height, clip.y + clip.height)).toBeGreaterThan(
+      Math.max(box.y, clip.y),
+    );
+  });
+});
+test("guide mobile hint follows the 800px breakpoint", async ({ page }) => {
+  await page.goto("/");
+  await expect(page.locator("#guide")).toBeVisible();
+  const hint = page.locator("#guide .mobile-hint");
+  await expect(hint).toHaveText(
+    "手机上也能用；想一次看清所有卡片，建议用电脑打开。",
+  );
+  for (const width of [375, 800, 801, 1440]) {
+    await page.setViewportSize({ width, height: 812 });
+    if (width <= 800) {
+      await expect(hint).toBeVisible();
+      await expect(hint).toHaveCSS("display", "block");
+    } else {
+      await expect(hint).toBeHidden();
+      await expect(hint).toHaveCSS("display", "none");
+    }
+  }
+});
 test("create, multiline edit, color, category, grouping, action and refresh", async ({
   page,
 }) => {

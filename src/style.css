@@ -577,6 +577,9 @@ dialog p {
   line-height: 1.9;
   color: #73806b;
 }
+.mobile-hint {
+  display: none;
+}
 .dialog-actions {
   display: flex;
   justify-content: flex-end;
@@ -650,6 +653,9 @@ button {
   }
 }
 @media (max-width: 800px) {
+  .mobile-hint {
+    display: block;
+  }
   header {
     height: 80px;
     margin: 0 20px;
